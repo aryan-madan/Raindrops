@@ -16,7 +16,7 @@ class Store: ObservableObject {
         let base = "http://\(ip):\(port)"
             
         self.host = base
-        self.generate(base)a
+        self.generate(base)
         self.refresh()
         
         let onStatus: @Sendable (Bool) -> Void = { [weak self] active in
