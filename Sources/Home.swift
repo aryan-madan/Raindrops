@@ -1,9 +1,13 @@
 import SwiftUI
+import AppKit
 
 struct Home: View {
     @EnvironmentObject var store: Store
     @State private var showCopied: Bool = false
-    @Namespace private var glassNamespace
+
+    let columns = [
+        GridItem(.adaptive(minimum: 160), spacing: 16)
+    ]
 
     var body: some View {
         ZStack {
@@ -12,142 +16,200 @@ struct Home: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                HStack(spacing: 20) {
+                HStack(spacing: 16) {
                     Text("Raindrops")
-                        .font(.system(size: 26, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.primary.opacity(0.9))
+                        .font(.system(size: 28, weight: .medium, design: .rounded))
+                        .foregroundStyle(.primary.opacity(0.85))
 
                     Spacer()
 
                     Button(action: { store.clear() }) {
                         HStack(spacing: 6) {
                             Image(systemName: "trash")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 13, weight: .medium))
                             Text("Clear Cache")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 13, weight: .medium))
                         }
                         .foregroundStyle(.red.opacity(0.9))
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                         .background(.red.opacity(0.15))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 32)
-                .padding(.top, 32)
-                .padding(.bottom, 16)
-
-                Spacer(minLength: 0)
+                .padding(.horizontal, 40)
+                .padding(.top, 40)
+                .padding(.bottom, 20)
 
                 ScrollView {
-                    LazyVStack(spacing: 10) {
-                        if store.files.isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "tray")
-                                    .font(.system(size: 44))
-                                    .foregroundStyle(.secondary.opacity(0.35))
-                                Text("Waiting for drops…")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(.secondary.opacity(0.55))
-                            }
-                            .padding(.top, 80)
-                        } else {
+                    if store.files.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "tray")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary.opacity(0.4))
+                            Text("Waiting for drops...")
+                                .font(.title3)
+                                .foregroundStyle(.secondary.opacity(0.6))
+                        }
+                        .padding(.top, 100)
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        LazyVGrid(columns: columns, spacing: 16) {
                             ForEach(store.files, id: \.self) { name in
-                                FileRow(name: name, store: store)
+                                FileCard(name: name, store: store)
+                                    .transition(.scale.combined(with: .opacity))
                             }
                         }
+                        .padding(.horizontal, 40)
+                        .padding(.bottom, 100)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: store.files)
                     }
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 32)
                 }
-
-                Spacer(minLength: 0)
             }
 
             VStack {
                 Spacer()
                 HStack {
                     Spacer()
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         HStack(spacing: 8) {
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 7, height: 7)
-
+                            Circle().fill(Color.green).frame(width: 8, height: 8)
                             Text(showCopied ? "Copied!" : store.host)
-                                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                .foregroundStyle(.primary.opacity(0.95))
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.primary)
+                                .contentTransition(.numericText())
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(.black.opacity(0.28))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(.black.opacity(0.3))
                         .clipShape(Capsule())
                         .glassEffect(.regular, in: Capsule())
-                        .matchedGeometryEffect(id: "glassCapsule", in: glassNamespace)
                         .onTapGesture {
                             let pasteboard = NSPasteboard.general
                             pasteboard.clearContents()
                             pasteboard.setString(store.host, forType: .string)
-                            withAnimation(.easeInOut(duration: 0.18)) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
                                 showCopied = true
                             }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
-                                withAnimation(.easeInOut(duration: 0.18)) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
                                     showCopied = false
                                 }
                             }
                         }
 
                         Text("Active on Network")
-                            .font(.system(size: 10, weight: .regular))
-                            .foregroundStyle(.secondary.opacity(0.7))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
-                .padding(.bottom, 26)
+                .padding(.bottom, 30)
             }
         }
         .frame(minWidth: 800, minHeight: 600)
     }
 }
 
-struct FileRow: View {
+struct FileCard: View {
     let name: String
-    let store: Store
+    @ObservedObject var store: Store
+    @State private var textPreview: String = ""
+    
+    var url: URL { Storage.location.appendingPathComponent(name) }
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "doc.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(.blue.opacity(0.85))
-                .frame(width: 30, height: 30)
-                .background(.blue.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
-
-            Text(name)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.95))
-
-            Spacer()
-
-            Button(action: { store.open(name) }) {
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 26, height: 26)
-                    .background(.black.opacity(0.06))
-                    .clipShape(Circle())
-                    .glassEffect(.regular, in: Circle())
+        ZStack(alignment: .bottom) {
+            Group {
+                if isImage {
+                    AsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        ZStack {
+                            Color.black.opacity(0.2)
+                            ProgressView()
+                                .scaleEffect(0.6)
+                        }
+                    }
+                } else if isText {
+                    ZStack(alignment: .topLeading) {
+                        Color.white.opacity(0.05)
+                        Text(textPreview)
+                            .font(.system(size: 7, design: .monospaced))
+                            .foregroundStyle(.secondary.opacity(0.8))
+                            .padding(12)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
+                    .task {
+                        if textPreview.isEmpty {
+                            textPreview = (try? String(contentsOf: url, encoding: .utf8))?.prefix(800).description ?? ""
+                        }
+                    }
+                } else {
+                    ZStack {
+                        Color.white.opacity(0.05)
+                        VStack(spacing: 8) {
+                            Image(systemName: "doc.fill")
+                                .font(.system(size: 36))
+                                .foregroundStyle(.secondary.opacity(0.25))
+                            Text(url.pathExtension.uppercased())
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.secondary.opacity(0.4))
+                        }
+                    }
+                }
             }
-            .buttonStyle(.plain)
+            .frame(height: 180)
+            .frame(maxWidth: .infinity)
+            
+            HStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(name)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.95))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                    
+                    Text(fileSize)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                }
+                Spacer()
+            }
+            .padding(10)
+            .background(Color.black.opacity(0.15))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+            .padding(6)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
-        .background(.black.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            store.open(name)
+        }
+    }
+    
+    var isImage: Bool {
+        ["jpg", "jpeg", "png", "gif", "heic", "webp"].contains(url.pathExtension.lowercased())
+    }
+    
+    var isText: Bool {
+        ["txt", "md", "json", "swift", "js", "html", "css", "xml", "log", "py", "rs", "ts"].contains(url.pathExtension.lowercased())
+    }
+    
+    var fileSize: String {
+        guard let attr = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attr[.size] as? Int64 else { return "--" }
+        return ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
     }
 }
