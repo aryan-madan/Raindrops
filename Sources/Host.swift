@@ -34,10 +34,20 @@ final class Host: @unchecked Sendable {
         
         app.get("logo") { req -> Response in
             guard let url = Bundle.module.url(forResource: "Logo", withExtension: "svg"),
-                  let data = try? Data(contentsOf: url) else {
+                  let data = try? Data(contentsOf: url),
+                  var svg = String(data: data, encoding: .utf8) else {
                 throw Abort(.notFound)
             }
-            return Response(status: .ok, headers: ["Content-Type": "image/svg+xml"], body: .init(data: data))
+            
+            // Inject style to colorize the logo to #6486ff
+            let style = "<style>path,circle,rect,polygon,ellipse{fill:#6486ff !important;}</style>"
+            if !svg.contains("</svg>") {
+                 svg += style // Fallback if malformed
+            } else {
+                 svg = svg.replacingOccurrences(of: "</svg>", with: "\(style)</svg>")
+            }
+            
+            return Response(status: .ok, headers: ["Content-Type": "image/svg+xml"], body: .init(string: svg))
         }
         
         app.on(.POST, "upload", body: .stream) { req async throws -> String in
@@ -90,7 +100,9 @@ final class Host: @unchecked Sendable {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <meta name="theme-color" content="#6486ff">
             <title>Raindrops</title>
+            <link rel="icon" type="image/svg+xml" href="/logo">
             <script src="https://unpkg.com/@phosphor-icons/web"></script>
             <style>
                 :root {
