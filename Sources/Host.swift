@@ -32,6 +32,14 @@ final class Host: @unchecked Sendable {
             return Response(status: .ok, headers: ["Content-Type": "text/html"], body: .init(string: self.html))
         }
         
+        app.get("logo") { req -> Response in
+            guard let url = Bundle.module.url(forResource: "Logo", withExtension: "svg"),
+                  let data = try? Data(contentsOf: url) else {
+                throw Abort(.notFound)
+            }
+            return Response(status: .ok, headers: ["Content-Type": "image/svg+xml"], body: .init(data: data))
+        }
+        
         app.on(.POST, "upload", body: .stream) { req async throws -> String in
             self.onStatus(true)
             let name = req.query[String.self, at: "name"] ?? "unknown_file"
@@ -138,12 +146,12 @@ final class Host: @unchecked Sendable {
                 .logo {
                     font-weight: 600;
                     font-size: 16px;
-                    display: flex; align-items: center; gap: 8px;
+                    display: flex; align-items: center; gap: 10px;
                     margin-bottom: 32px;
                     color: var(--text);
                     opacity: 0.9;
                 }
-                .logo i { font-size: 20px; }
+                .logo img { width: 24px; height: 24px; object-fit: contain; }
 
                 .btn-primary {
                     background: var(--accent);
@@ -185,7 +193,8 @@ final class Host: @unchecked Sendable {
                     border-bottom: 1px solid transparent;
                 }
 
-                .mobile-logo { display: none; font-weight: 600; align-items: center; gap: 8px; }
+                .mobile-logo { display: none; align-items: center; justify-content: center; }
+                .mobile-logo img { width: 24px; height: 24px; object-fit: contain; }
                 
                 .search-box {
                     background: var(--panel);
@@ -404,7 +413,7 @@ final class Host: @unchecked Sendable {
         <body>
             <aside>
                 <div class="logo">
-                    <i class="ph-fill ph-drop"></i> RAINDROPS
+                    <img src="/logo" alt="Logo"> RAINDROPS
                 </div>
                 <button class="btn-primary" onclick="togglePop(event)">
                     <i class="ph-bold ph-plus"></i> New Upload
@@ -419,7 +428,7 @@ final class Host: @unchecked Sendable {
 
             <div class="layout-col">
                 <header>
-                    <div class="mobile-logo"><i class="ph-fill ph-drop"></i></div>
+                    <div class="mobile-logo"><img src="/logo" alt="Logo"></div>
                     <div class="search-box">
                         <i class="ph ph-magnifying-glass"></i>
                         <input type="text" id="search" placeholder="Filter files..." onkeyup="filter()">

@@ -17,6 +17,14 @@ struct Home: View {
 
             VStack(spacing: 0) {
                 HStack(spacing: 16) {
+                    if let url = Bundle.module.url(forResource: "Logo", withExtension: "svg"),
+                       let nsImage = NSImage(contentsOf: url) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 33, height: 33)
+                    }
+
                     Text("Raindrops")
                         .font(.system(size: 28, weight: .medium, design: .rounded))
                         .foregroundStyle(.primary.opacity(0.85))
