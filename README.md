@@ -1,3 +1,4 @@
+![Raindrops Logo](./Sources/Resources/Logo.svg)
 # raindrops
 
 (yes the name is inspired by airdrop)
