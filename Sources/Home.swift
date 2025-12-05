@@ -134,26 +134,11 @@ struct Home: View {
 
             VStack {
                 Spacer()
-                HStack {
-                    Spacer()
-                    VStack(spacing: 6) {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(store.isTunneling ? brandColor : Color.green)
-                                .frame(width: 8, height: 8)
-                                .shadow(color: (store.isTunneling ? brandColor : Color.green).opacity(0.5), radius: 4)
-
-                            Text(showCopied ? "Copied!" : store.host)
-                                .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(.primary)
-                                .contentTransition(.numericText())
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(.black.opacity(0.3))
-                        .clipShape(Capsule())
-                        .glassEffect(.regular, in: Capsule())
-                        .onTapGesture {
+                
+                ZStack(alignment: .center) {
+                    HStack {
+                        Spacer()
+                        Button(action: {
                             let pasteboard = NSPasteboard.general
                             pasteboard.clearContents()
                             pasteboard.setString(store.host, forType: .string)
@@ -165,15 +150,56 @@ struct Home: View {
                                     showCopied = false
                                 }
                             }
-                        }
+                        }) {
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(store.isTunneling ? brandColor : Color.green)
+                                    .frame(width: 8, height: 8)
+                                    .shadow(color: (store.isTunneling ? brandColor : Color.green).opacity(0.6), radius: 4)
 
-                        Text(store.isTunneling ? "Public via Cloudflare" : "Active on Network")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                                Text(showCopied ? "Copied Link!" : store.host)
+                                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(.white.opacity(0.9))
+                                    .contentTransition(.numericText())
+                            }
+                            .padding(.horizontal, 20)
+                            .frame(height: 48)
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular, in: .capsule)
+                        Spacer()
                     }
-                    Spacer()
+                    
+                    HStack {
+                        Spacer()
+                        HStack(spacing: 8) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                            
+                            Text(store.pin)
+                                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .contentTransition(.numericText())
+                            
+                            Button(action: {
+                                withAnimation {
+                                    store.regeneratePin()
+                                }
+                            }) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.5))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(height: 36)
+                        .glassEffect(.regular, in: .capsule)
+                        .padding(.trailing, 32)
+                    }
                 }
-                .padding(.bottom, 30)
+                .padding(.bottom, 32)
             }
         }
         .frame(minWidth: 800, minHeight: 600)

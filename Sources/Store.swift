@@ -9,6 +9,7 @@ class Store: ObservableObject {
     @Published var files: [String] = []
     @Published var qr: NSImage?
     @Published var busy: Bool = false
+    @Published var pin: String = ""
     
     @Published var isTunneling: Bool = false
     @Published var findingTunnel: Bool = false
@@ -18,6 +19,7 @@ class Store: ObservableObject {
     private var serverTask: Task<Void, Never>?
     
     func boot() {
+        regeneratePin()
         let ip = Address.find() ?? "localhost"
         let port = 8080
         let base = "http://\(ip):\(port)"
@@ -39,14 +41,29 @@ class Store: ObservableObject {
             }
         }
         
+        let pinProvider: @Sendable () async -> String = { [weak self] in
+            await MainActor.run {
+                self?.pin ?? ""
+            }
+        }
+        
         serverTask = Task.detached {
-            let server = Host(port: port, onStatus: onStatus, onRefresh: onRefresh)
+            let server = Host(
+                port: port,
+                onStatus: onStatus,
+                onRefresh: onRefresh,
+                pinProvider: pinProvider
+            )
             do {
                 try await server.launch()
             } catch {
                 print("Server failed to start: \(error)")
             }
         }
+    }
+
+    func regeneratePin() {
+        self.pin = String(format: "%04d", Int.random(in: 0...9999))
     }
     
     func generate(_ string: String) {
