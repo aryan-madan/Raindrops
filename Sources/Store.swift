@@ -1,5 +1,7 @@
+
 import SwiftUI
 import CoreImage.CIFilterBuiltins
+import Foundation
 
 @MainActor
 class Store: ObservableObject {
@@ -8,13 +10,19 @@ class Store: ObservableObject {
     @Published var qr: NSImage?
     @Published var busy: Bool = false
     
+    @Published var isTunneling: Bool = false
+    @Published var findingTunnel: Bool = false
+    private var tunnelProcess: Process?
+    private var localAddress: String = ""
+    
     private var serverTask: Task<Void, Never>?
     
     func boot() {
         let ip = Address.find() ?? "localhost"
         let port = 8080
         let base = "http://\(ip):\(port)"
-            
+        
+        self.localAddress = base
         self.host = base
         self.generate(base)
         self.refresh()
@@ -85,5 +93,108 @@ class Store: ObservableObject {
             print("Error clearing cache: \(error)")
         }
         refresh()
+    }
+    
+    func toggleTunnel() {
+        if isTunneling {
+            stopTunnel()
+        } else {
+            startTunnel()
+        }
+    }
+    
+    private func stopTunnel() {
+        tunnelProcess?.terminate()
+        tunnelProcess = nil
+        isTunneling = false
+        findingTunnel = false
+        
+        self.host = self.localAddress
+        self.generate(self.localAddress)
+    }
+    
+    private func startTunnel() {
+        var executableURL: URL?
+
+        if let bundleURL = Bundle.module.url(forResource: "cloudflared", withExtension: nil) {
+            let tempDir = FileManager.default.temporaryDirectory
+            let targetURL = tempDir.appendingPathComponent("cloudflared")
+            
+            do {
+                if FileManager.default.fileExists(atPath: targetURL.path) {
+                    try FileManager.default.removeItem(at: targetURL)
+                }
+                
+                try FileManager.default.copyItem(at: bundleURL, to: targetURL)
+                
+                let chmod = Process()
+                chmod.executableURL = URL(fileURLWithPath: "/bin/chmod")
+                chmod.arguments = ["+x", targetURL.path]
+                try chmod.run()
+                chmod.waitUntilExit()
+                
+                executableURL = targetURL
+            } catch {
+                print("Failed to prepare bundled cloudflared: \(error)")
+            }
+        }
+        
+        if executableURL == nil {
+            let paths = [
+                "/opt/homebrew/bin/cloudflared",
+                "/usr/local/bin/cloudflared",
+                "/usr/bin/cloudflared"
+            ]
+            if let path = paths.first(where: { FileManager.default.fileExists(atPath: $0) }) {
+                executableURL = URL(fileURLWithPath: path)
+            }
+        }
+        
+        guard let finalURL = executableURL else {
+            print("cloudflared binary not found in bundle or system paths.")
+            self.isTunneling = false
+            return
+        }
+        
+        findingTunnel = true
+        isTunneling = true
+        
+        let task = Process()
+        task.executableURL = finalURL
+        task.arguments = ["tunnel", "--url", "http://localhost:8080"]
+        
+        let pipe = Pipe()
+        task.standardError = pipe
+        
+        task.terminationHandler = { [weak self] _ in
+            Task { @MainActor in
+                self?.stopTunnel()
+            }
+        }
+        
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            if let str = String(data: data, encoding: .utf8) {
+                if let range = str.range(of: "https://[a-zA-Z0-9-]+\\.trycloudflare\\.com", options: .regularExpression) {
+                    let url = String(str[range])
+                    Task { @MainActor in
+                        guard let self = self else { return }
+                        if self.findingTunnel {
+                            self.host = url
+                            self.generate(url)
+                            self.findingTunnel = false
+                        }
+                    }
+                }
+            }
+        }
+        
+        do {
+            try task.run()
+            self.tunnelProcess = task
+        } catch {
+            print("Failed to run cloudflared: \(error)")
+            stopTunnel()
+        }
     }
 }

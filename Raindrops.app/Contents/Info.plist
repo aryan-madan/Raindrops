@@ -11,6 +11,9 @@
     <key>CFBundleExecutable</key>
     <string>Raindrops</string>
 
+    <key>CFBundleIconName</key>
+    <string>Raindrops</string>
+
     <key>CFBundleIconFile</key>
     <string>Raindrops.icns</string>
 
