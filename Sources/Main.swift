@@ -1,3 +1,4 @@
+
 import SwiftUI
 import AppKit
 
@@ -19,7 +20,7 @@ struct Raindrops: App {
     @StateObject var store = Store()
 
     var body: some Scene {
-        WindowGroup(id: "mainWindow") {
+        Window("Raindrops", id: "mainWindow") {
             Home()
                 .environmentObject(store)
                 .preferredColorScheme(.dark)

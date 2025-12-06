@@ -58,15 +58,42 @@ final class Host: @unchecked Sendable {
         try await app.execute()
     }
     
+    private func findResource(_ name: String, ext: String, sub: String?) -> URL? {
+        if let sub = sub, let url = Bundle.module.url(forResource: name, withExtension: ext, subdirectory: sub) {
+            return url
+        }
+        if let sub = sub, let url = Bundle.module.url(forResource: name, withExtension: ext, subdirectory: "Resources/\(sub)") {
+            return url
+        }
+        return Bundle.module.url(forResource: name, withExtension: ext, subdirectory: "Resources") 
+            ?? Bundle.module.url(forResource: name, withExtension: ext, subdirectory: nil)
+    }
+    
     func configure() {
         app.middleware.use(AuthMiddleware(host: self))
         
         app.get { req -> Response in
-            guard let url = Bundle.module.url(forResource: "index", withExtension: "html"),
+            guard let url = self.findResource("index", ext: "html", sub: "Web"),
                   let html = try? String(contentsOf: url, encoding: .utf8) else {
                 return Response(status: .internalServerError, body: .init(string: "Error loading UI."))
             }
             return Response(status: .ok, headers: ["Content-Type": "text/html"], body: .init(string: html))
+        }
+
+        app.get("style.css") { req -> Response in
+            guard let url = self.findResource("style", ext: "css", sub: "Web"),
+                  let css = try? String(contentsOf: url, encoding: .utf8) else {
+                throw Abort(.notFound)
+            }
+            return Response(status: .ok, headers: ["Content-Type": "text/css"], body: .init(string: css))
+        }
+
+        app.get("app.js") { req -> Response in
+            guard let url = self.findResource("app", ext: "js", sub: "Web"),
+                  let js = try? String(contentsOf: url, encoding: .utf8) else {
+                throw Abort(.notFound)
+            }
+            return Response(status: .ok, headers: ["Content-Type": "application/javascript"], body: .init(string: js))
         }
 
         app.get("events") { req -> Response in
@@ -117,7 +144,7 @@ final class Host: @unchecked Sendable {
         }
         
         app.get("logo") { req -> Response in
-            guard let url = Bundle.module.url(forResource: "Logo", withExtension: "svg"),
+            guard let url = self.findResource("Logo", ext: "svg", sub: nil),
                   let data = try? Data(contentsOf: url),
                   var svg = String(data: data, encoding: .utf8) else {
                 throw Abort(.notFound)
@@ -178,7 +205,7 @@ final class Host: @unchecked Sendable {
     }
     
     func loginResponse(error: Bool = false) -> Response {
-        guard let url = Bundle.module.url(forResource: "login", withExtension: "html"),
+        guard let url = self.findResource("login", ext: "html", sub: "Web"),
               var html = try? String(contentsOf: url, encoding: .utf8) else {
             return Response(status: .internalServerError, body: .init(string: "Error loading login UI."))
         }
@@ -194,7 +221,7 @@ struct AuthMiddleware: AsyncMiddleware {
     
     func respond(to request: Request, chainingTo next: AsyncResponder) async throws -> Response {
         let path = request.url.path
-        if path == "/logo" || path == "/login" || path == "/events" {
+        if path == "/logo" || path == "/login" || path == "/events" || path == "/style.css" || path == "/app.js" {
             return try await next.respond(to: request)
         }
         

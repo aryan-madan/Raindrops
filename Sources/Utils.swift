@@ -13,20 +13,18 @@ struct Address {
             while ptr != nil {
                 defer { ptr = ptr?.pointee.ifa_next }
                 
-                let interface = ptr?.pointee
-                let addrFamily = interface?.ifa_addr.pointee.sa_family
+                guard let interface = ptr?.pointee else { continue }
+                let addrFamily = interface.ifa_addr.pointee.sa_family
                 
                 if addrFamily == UInt8(AF_INET) {
-                    if let name = String(validatingCString: interface!.ifa_name) {
-                        if name == "en0" { // Usually Wi-Fi
+                    if let name = String(validatingCString: interface.ifa_name) {
+                        if name == "en0" {
                             var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-                            getnameinfo(interface?.ifa_addr, socklen_t((interface?.ifa_addr.pointee.sa_len)!),
+                            getnameinfo(interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
                                         &hostname, socklen_t(hostname.count),
                                         nil, socklen_t(0), NI_NUMERICHOST)
                             
-                            address = hostname.withUnsafeBufferPointer { ptr in
-                                String(cString: ptr.baseAddress!)
-                            }
+                            address = String(cString: hostname)
                         }
                     }
                 }
