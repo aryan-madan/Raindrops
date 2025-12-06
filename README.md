@@ -28,4 +28,8 @@ files land instantly in a `Raindrops` folder in your downloads.
 - swift & swiftui
 - vapor
 
+## restrictions
+macos tahoe 26
+arm64 based macs only
+
 enjoy (._.)/
