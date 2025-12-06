@@ -1,7 +1,7 @@
-
 import SwiftUI
 import CoreImage.CIFilterBuiltins
 import Foundation
+import AppKit
 
 @MainActor
 class Store: ObservableObject {
@@ -19,7 +19,10 @@ class Store: ObservableObject {
     private var serverTask: Task<Void, Never>?
     
     func boot() {
+        if serverTask != nil { return }
+        
         regeneratePin()
+        
         let ip = Address.find() ?? "localhost"
         let port = 8080
         let base = "http://\(ip):\(port)"
@@ -37,6 +40,7 @@ class Store: ObservableObject {
         
         let onRefresh: @Sendable () -> Void = { [weak self] in
             Task { @MainActor in
+                self?.playSound("Glass")
                 self?.refresh()
             }
         }
@@ -61,7 +65,7 @@ class Store: ObservableObject {
             }
         }
     }
-
+    
     func regeneratePin() {
         self.pin = String(format: "%04d", Int.random(in: 0...9999))
     }
@@ -74,7 +78,7 @@ class Store: ObservableObject {
         if let output = filter.outputImage {
             let colorFilter = CIFilter.falseColor()
             colorFilter.inputImage = output
-            colorFilter.color0 = CIColor(red: 1, green: 1, blue: 1, alpha: 1)
+            colorFilter.color0 = CIColor(red: 0, green: 0, blue: 0, alpha: 1)
             colorFilter.color1 = CIColor(red: 0, green: 0, blue: 0, alpha: 0)
             
             if let colored = colorFilter.outputImage {
@@ -110,6 +114,11 @@ class Store: ObservableObject {
             print("Error clearing cache: \(error)")
         }
         refresh()
+        playSound("Purr")
+    }
+    
+    func playSound(_ name: String) {
+        NSSound(named: name)?.play()
     }
     
     func toggleTunnel() {
@@ -125,6 +134,7 @@ class Store: ObservableObject {
         tunnelProcess = nil
         isTunneling = false
         findingTunnel = false
+        playSound("Bottle")
         
         self.host = self.localAddress
         self.generate(self.localAddress)
@@ -170,6 +180,7 @@ class Store: ObservableObject {
         guard let finalURL = executableURL else {
             print("cloudflared binary not found in bundle or system paths.")
             self.isTunneling = false
+            playSound("Basso")
             return
         }
         
@@ -199,7 +210,10 @@ class Store: ObservableObject {
                         if self.findingTunnel {
                             self.host = url
                             self.generate(url)
-                            self.findingTunnel = false
+                            self.playSound("Hero")
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                self.findingTunnel = false
+                            }
                         }
                     }
                 }

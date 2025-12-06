@@ -1,5 +1,3 @@
-
-
 import SwiftUI
 import AppKit
 
@@ -143,7 +141,8 @@ struct Home: View {
                             let pasteboard = NSPasteboard.general
                             pasteboard.clearContents()
                             pasteboard.setString(store.host, forType: .string)
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            store.playSound("Pop")
+                            withAnimation(.snappy) {
                                 showCopied = true
                             }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -161,6 +160,7 @@ struct Home: View {
                                 Text(showCopied ? "Copied Link!" : store.host)
                                     .font(.system(size: 14, weight: .medium, design: .monospaced))
                                     .foregroundStyle(.white.opacity(0.9))
+                                    .clipShape(Rectangle())
                                     .contentTransition(.numericText())
                             }
                             .padding(.horizontal, 20)
@@ -168,6 +168,7 @@ struct Home: View {
                         }
                         .buttonStyle(.plain)
                         .glassEffect(.regular, in: .capsule)
+                        .clipShape(Capsule())
                         Spacer()
                     }
                     
@@ -305,5 +306,157 @@ struct FileCard: View {
         guard let attr = try? FileManager.default.attributesOfItem(atPath: url.path),
               let size = attr[.size] as? Int64 else { return "--" }
         return ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
+    }
+}
+
+struct MenuBarView: View {
+    @EnvironmentObject var store: Store
+    @Environment(\.openWindow) var openWindow
+    @State private var isHoveringCopy = false
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {  
+                Text("Raindrops")
+                    .font(.system(size: 13, weight: .semibold))
+                
+                Spacer()
+                
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(store.isTunneling ? Color(red: 0, green: 203/255, blue: 1) : Color.green)
+                        .frame(width: 6, height: 6)
+                    Text(store.isTunneling ? "Public" : "Local")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.primary.opacity(0.06))
+                .clipShape(Capsule())
+            }
+            .padding(12)
+            
+            Divider()
+                .opacity(0.5)
+            
+            VStack(spacing: 16) {
+                if let qr = store.qr {
+                    ZStack {
+                        Color.white
+                        Image(nsImage: qr)
+                            .resizable()
+                            .interpolation(.none)
+                            .aspectRatio(contentMode: .fit)
+                            .padding(8)
+                    }
+                    .frame(width: 150, height: 150)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.12), radius: 5, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(.black.opacity(0.05), lineWidth: 1)
+                    )
+                }
+                
+                Button(action: {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(store.host, forType: .string)
+                    store.playSound("Pop")
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "link")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        
+                        Text(store.host)
+                            .font(.system(size: 11, design: .monospaced))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .foregroundStyle(.primary.opacity(0.8))
+                        
+                        Spacer()
+                        
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .opacity(isHoveringCopy ? 1 : 0)
+                            .transition(.opacity)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(isHoveringCopy ? Color.primary.opacity(0.06) : Color.primary.opacity(0.03))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .onHover { isHoveringCopy = $0 }
+                .padding(.horizontal, 12)
+                
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                    
+                    Text("PIN:")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    
+                    Text(store.pin)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.primary)
+                }
+            }
+            .padding(.vertical, 16)
+            
+            Divider()
+                .opacity(0.5)
+            
+            VStack(spacing: 2) {
+                MenuBarItem(title: "Open Inbox", icon: "arrow.up.left.and.arrow.down.right") {
+                    NSApp.setActivationPolicy(.regular)
+                    openWindow(id: "mainWindow")
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+                
+                MenuBarItem(title: "Quit", icon: "power") {
+                    NSApp.terminate(nil)
+                }
+            }
+            .padding(5)
+        }
+        .frame(width: 260)
+    }
+}
+
+struct MenuBarItem: View {
+    let title: String
+    let icon: String
+    let action: () -> Void
+    @State private var isHovering = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 13))
+                Spacer()
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+                    .foregroundStyle(isHovering ? Color.white : .secondary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isHovering ? Color.accentColor : Color.clear)
+            )
+            .foregroundStyle(isHovering ? .white : .primary)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
     }
 }
