@@ -12,7 +12,7 @@ it's a native mac app that spins up a server on your machine. this lets you shar
 
 ## features
 - **local transfer:** blazing fast sharing over your local wifi.
-- **go public:** click one button to generate a public link (via cloudflare tunnel) to share files with anyone, anywhere in the world.
+- **go public:** click one button to generate a public link (via cloudflare -tunnel) to share files with anyone, anywhere in the world.
 - **browser based:** no app needed on the receiving device.
 - **native ui:** built with swiftui, looking right at home on macos.
 

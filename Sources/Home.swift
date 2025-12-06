@@ -1,15 +1,11 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct Home: View {
     @EnvironmentObject var store: Store
     @State private var showCopied: Bool = false
 
-    let columns = [
-        GridItem(.adaptive(minimum: 160), spacing: 16)
-    ]
-    
-    let brandColor = Color(red: 0, green: 203/255, blue: 1)
+    let brandColor = Color(red: 0, green: 203 / 255, blue: 1)
 
     var body: some View {
         ZStack {
@@ -20,7 +16,8 @@ struct Home: View {
             VStack(spacing: 0) {
                 HStack(spacing: 16) {
                     if let url = Bundle.module.url(forResource: "Logo", withExtension: "svg"),
-                       let nsImage = NSImage(contentsOf: url) {
+                        let nsImage = NSImage(contentsOf: url)
+                    {
                         Image(nsImage: nsImage)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -61,7 +58,9 @@ struct Home: View {
                                 .id(store.isTunneling)
                                 .transition(.push(from: .bottom))
                         }
-                        .foregroundStyle(store.isTunneling ? brandColor : Color.primary.opacity(0.8))
+                        .foregroundStyle(
+                            store.isTunneling ? brandColor : Color.primary.opacity(0.8)
+                        )
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background {
@@ -98,34 +97,42 @@ struct Home: View {
                 .padding(.top, 24)
                 .padding(.bottom, 24)
 
-                ZStack {
-                    Color.white.opacity(0.04)
-                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                        .ignoresSafeArea(edges: .bottom)
+                GeometryReader { geometry in
+                    ZStack {
+                        Color.white.opacity(0.04)
+                            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                            .ignoresSafeArea(edges: .bottom)
 
-                    ScrollView {
-                        if store.files.isEmpty {
-                            VStack(spacing: 16) {
-                                Image(systemName: "tray")
-                                    .font(.system(size: 48))
-                                    .foregroundStyle(.secondary.opacity(0.4))
-                                Text("Waiting for drops...")
-                                    .font(.title3)
-                                    .foregroundStyle(.secondary.opacity(0.6))
-                            }
-                            .padding(.top, 100)
-                            .frame(maxWidth: .infinity)
-                        } else {
-                            LazyVGrid(columns: columns, spacing: 16) {
-                                ForEach(store.files, id: \.self) { name in
-                                    FileCard(name: name, store: store)
-                                        .transition(.scale.combined(with: .opacity))
+                        ScrollView {
+                            if store.files.isEmpty {
+                                VStack(spacing: 16) {
+                                    Image(systemName: "tray")
+                                        .font(.system(size: 48))
+                                        .foregroundStyle(.secondary.opacity(0.4))
+                                    Text("Waiting for drops...")
+                                        .font(.title3)
+                                        .foregroundStyle(.secondary.opacity(0.6))
                                 }
+                                .padding(.top, 100)
+                                .frame(maxWidth: .infinity)
+                            } else {
+                                LazyVGrid(
+                                    columns: [
+                                        GridItem(.adaptive(minimum: 160, maximum: 220), spacing: 16)
+                                    ], 
+                                    spacing: 16
+                                ) {
+                                    ForEach(store.files, id: \.self) { name in
+                                        FileCard(name: name, store: store)
+                                            .transition(.scale.combined(with: .opacity))
+                                    }
+                                }
+                                .padding(.horizontal, 24)
+                                .padding(.top, 24)
+                                .padding(.bottom, 100)
+                                .animation(
+                                    .spring(response: 0.35, dampingFraction: 0.75), value: store.files)
                             }
-                            .padding(.horizontal, 24)
-                            .padding(.top, 24)
-                            .padding(.bottom, 100)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.75), value: store.files)
                         }
                     }
                 }
@@ -133,7 +140,7 @@ struct Home: View {
 
             VStack {
                 Spacer()
-                
+
                 ZStack(alignment: .center) {
                     HStack {
                         Spacer()
@@ -155,7 +162,9 @@ struct Home: View {
                                 Circle()
                                     .fill(store.isTunneling ? brandColor : Color.green)
                                     .frame(width: 8, height: 8)
-                                    .shadow(color: (store.isTunneling ? brandColor : Color.green).opacity(0.6), radius: 4)
+                                    .shadow(
+                                        color: (store.isTunneling ? brandColor : Color.green)
+                                            .opacity(0.6), radius: 4)
 
                                 Text(showCopied ? "Copied Link!" : store.host)
                                     .font(.system(size: 14, weight: .medium, design: .monospaced))
@@ -171,19 +180,19 @@ struct Home: View {
                         .clipShape(Capsule())
                         Spacer()
                     }
-                    
+
                     HStack {
                         Spacer()
                         HStack(spacing: 8) {
                             Image(systemName: "lock.fill")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
-                            
+
                             Text(store.pin)
                                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                                 .foregroundStyle(.white.opacity(0.9))
                                 .contentTransition(.numericText())
-                            
+
                             Button(action: {
                                 withAnimation {
                                     store.regeneratePin()
@@ -219,17 +228,23 @@ struct FileCard: View {
         ZStack(alignment: .bottom) {
             Group {
                 if isImage {
-                    AsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        ZStack {
-                            Color.black.opacity(0.2)
-                            ProgressView()
-                                .scaleEffect(0.6)
+                    GeometryReader { geo in
+                        AsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: geo.size.width, height: 180)
+                                .clipped()
+                        } placeholder: {
+                            ZStack {
+                                Color.black.opacity(0.2)
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                            }
+                            .frame(width: geo.size.width, height: 180)
                         }
                     }
+                    .frame(height: 180)
                 } else if isText {
                     ZStack(alignment: .topLeading) {
                         Color.white.opacity(0.05)
@@ -237,11 +252,15 @@ struct FileCard: View {
                             .font(.system(size: 7, design: .monospaced))
                             .foregroundStyle(.secondary.opacity(0.8))
                             .padding(12)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .frame(
+                                maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
+                    .frame(height: 180)
                     .task {
                         if textPreview.isEmpty {
-                            textPreview = (try? String(contentsOf: url, encoding: .utf8))?.prefix(800).description ?? ""
+                            textPreview =
+                                (try? String(contentsOf: url, encoding: .utf8))?.prefix(800)
+                                .description ?? ""
                         }
                     }
                 } else {
@@ -256,9 +275,9 @@ struct FileCard: View {
                                 .foregroundStyle(.secondary.opacity(0.4))
                         }
                     }
+                    .frame(height: 180)
                 }
             }
-            .frame(height: 180)
             .frame(maxWidth: .infinity)
 
             HStack(spacing: 0) {
@@ -299,12 +318,14 @@ struct FileCard: View {
     }
 
     var isText: Bool {
-        ["txt", "md", "json", "swift", "js", "html", "css", "xml", "log", "py", "rs", "ts"].contains(url.pathExtension.lowercased())
+        ["txt", "md", "json", "swift", "js", "html", "css", "xml", "log", "py", "rs", "ts"]
+            .contains(url.pathExtension.lowercased())
     }
 
     var fileSize: String {
         guard let attr = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let size = attr[.size] as? Int64 else { return "--" }
+            let size = attr[.size] as? Int64
+        else { return "--" }
         return ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
     }
 }
@@ -313,18 +334,21 @@ struct MenuBarView: View {
     @EnvironmentObject var store: Store
     @Environment(\.openWindow) var openWindow
     @State private var isHoveringCopy = false
-    
+
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {  
+            HStack(spacing: 8) {
                 Text("Raindrops")
                     .font(.system(size: 13, weight: .semibold))
-                
+
                 Spacer()
-                
+
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(store.isTunneling ? Color(red: 0, green: 203/255, blue: 1) : Color.green)
+                        .fill(
+                            store.isTunneling
+                                ? Color(red: 0, green: 203 / 255, blue: 1) : Color.green
+                        )
                         .frame(width: 6, height: 6)
                     Text(store.isTunneling ? "Public" : "Local")
                         .font(.system(size: 10, weight: .medium))
@@ -336,10 +360,10 @@ struct MenuBarView: View {
                 .clipShape(Capsule())
             }
             .padding(12)
-            
+
             Divider()
                 .opacity(0.5)
-            
+
             VStack(spacing: 16) {
                 if let qr = store.qr {
                     ZStack {
@@ -358,7 +382,7 @@ struct MenuBarView: View {
                             .stroke(.black.opacity(0.05), lineWidth: 1)
                     )
                 }
-                
+
                 Button(action: {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(store.host, forType: .string)
@@ -368,15 +392,15 @@ struct MenuBarView: View {
                         Image(systemName: "link")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
-                        
+
                         Text(store.host)
                             .font(.system(size: 11, design: .monospaced))
                             .lineLimit(1)
                             .truncationMode(.middle)
                             .foregroundStyle(.primary.opacity(0.8))
-                        
+
                         Spacer()
-                        
+
                         Image(systemName: "doc.on.doc")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
@@ -385,7 +409,9 @@ struct MenuBarView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(isHoveringCopy ? Color.primary.opacity(0.06) : Color.primary.opacity(0.03))
+                    .background(
+                        isHoveringCopy ? Color.primary.opacity(0.06) : Color.primary.opacity(0.03)
+                    )
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
@@ -395,33 +421,33 @@ struct MenuBarView: View {
                 .buttonStyle(.plain)
                 .onHover { isHoveringCopy = $0 }
                 .padding(.horizontal, 12)
-                
+
                 HStack(spacing: 6) {
                     Image(systemName: "lock.fill")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
-                    
+
                     Text("PIN:")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                    
+
                     Text(store.pin)
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundStyle(.primary)
                 }
             }
             .padding(.vertical, 16)
-            
+
             Divider()
                 .opacity(0.5)
-            
+
             VStack(spacing: 2) {
                 MenuBarItem(title: "Open Inbox", icon: "arrow.up.left.and.arrow.down.right") {
                     NSApp.setActivationPolicy(.regular)
                     openWindow(id: "mainWindow")
                     NSApp.activate(ignoringOtherApps: true)
                 }
-                
+
                 MenuBarItem(title: "Quit", icon: "power") {
                     NSApp.terminate(nil)
                 }
@@ -437,7 +463,7 @@ struct MenuBarItem: View {
     let icon: String
     let action: () -> Void
     @State private var isHovering = false
-    
+
     var body: some View {
         Button(action: action) {
             HStack {
