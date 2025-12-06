@@ -1,4 +1,5 @@
 
+
 import SwiftUI
 import AppKit
 
@@ -142,11 +143,11 @@ struct Home: View {
                             let pasteboard = NSPasteboard.general
                             pasteboard.clearContents()
                             pasteboard.setString(store.host, forType: .string)
-                            withAnimation(.easeInOut(duration: 0.2)) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                 showCopied = true
                             }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                withAnimation(.easeInOut(duration: 0.2)) {
+                                withAnimation(.easeOut(duration: 0.3)) {
                                     showCopied = false
                                 }
                             }
