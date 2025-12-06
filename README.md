@@ -5,7 +5,7 @@
 a modern tool to share files between your mac and everything else.
 
 ## demo
-![Demo](public/demo.mp4)
+https://github.com/user-attachments/assets/bcfe7d10-9958-4f2b-8944-3aec410ac0d2
 
 ## what is this?
 it's a native mac app that spins up a server on your machine. this lets you share files with androids, windows pcs, or linux machines just by opening a link in their browser. basically airdrop, but for everyone.
