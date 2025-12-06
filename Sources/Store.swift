@@ -1,3 +1,4 @@
+
 import SwiftUI
 import CoreImage.CIFilterBuiltins
 import Foundation
@@ -17,6 +18,7 @@ class Store: ObservableObject {
     private var localAddress: String = ""
     
     private var serverTask: Task<Void, Never>?
+    private let events = FileEvents()
     
     func boot() {
         if serverTask != nil { return }
@@ -56,7 +58,8 @@ class Store: ObservableObject {
                 port: port,
                 onStatus: onStatus,
                 onRefresh: onRefresh,
-                pinProvider: pinProvider
+                pinProvider: pinProvider,
+                events: self.events
             )
             do {
                 try await server.launch()
@@ -96,6 +99,10 @@ class Store: ObservableObject {
             let names = urls.map { $0.lastPathComponent }.filter { !$0.hasPrefix(".") }
             self.files = names.sorted()
         } catch {}
+        
+        Task {
+            await events.signal()
+        }
     }
     
     func open(_ name: String) {

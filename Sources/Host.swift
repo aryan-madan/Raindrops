@@ -2,21 +2,48 @@
 import Vapor
 import Foundation
 
+actor FileEvents {
+    private var streams: [UUID: AsyncStream<Void>.Continuation] = [:]
+    
+    func stream() -> AsyncStream<Void> {
+        AsyncStream { continuation in
+            let id = UUID()
+            streams[id] = continuation
+            continuation.onTermination = { [weak self] _ in
+                Task { await self?.remove(id) }
+            }
+        }
+    }
+    
+    func remove(_ id: UUID) {
+        streams[id] = nil
+    }
+    
+    func signal() {
+        for (_, continuation) in streams {
+            continuation.yield()
+        }
+    }
+}
+
 final class Host: @unchecked Sendable {
     var app: Application!
     let port: Int
     let onStatus: @Sendable (Bool) -> Void
     let onRefresh: @Sendable () -> Void
     let pinProvider: @Sendable () async -> String
+    let events: FileEvents
     
     init(port: Int, 
          onStatus: @escaping @Sendable (Bool) -> Void, 
          onRefresh: @escaping @Sendable () -> Void,
-         pinProvider: @escaping @Sendable () async -> String) {
+         pinProvider: @escaping @Sendable () async -> String,
+         events: FileEvents) {
         self.port = port
         self.onStatus = onStatus
         self.onRefresh = onRefresh
         self.pinProvider = pinProvider
+        self.events = events
     }
     
     func launch() async throws {
@@ -40,6 +67,27 @@ final class Host: @unchecked Sendable {
                 return Response(status: .internalServerError, body: .init(string: "Error loading UI."))
             }
             return Response(status: .ok, headers: ["Content-Type": "text/html"], body: .init(string: html))
+        }
+
+        app.get("events") { req -> Response in
+            let response = Response(status: .ok, headers: [
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive"
+            ])
+            response.body = .init(stream: { writer in
+                Task {
+                    let stream = await self.events.stream()
+                    for await _ in stream {
+                        do {
+                            try await writer.write(.buffer(ByteBuffer(string: "data: update\n\n"))).get()
+                        } catch {
+                            break
+                        }
+                    }
+                }
+            })
+            return response
         }
         
         app.post("login") { req async throws -> Response in
@@ -113,6 +161,7 @@ final class Host: @unchecked Sendable {
             }
             self.onStatus(false)
             self.onRefresh()
+            await self.events.signal()
             return "OK"
         }
         
@@ -145,7 +194,7 @@ struct AuthMiddleware: AsyncMiddleware {
     
     func respond(to request: Request, chainingTo next: AsyncResponder) async throws -> Response {
         let path = request.url.path
-        if path == "/logo" || path == "/login" {
+        if path == "/logo" || path == "/login" || path == "/events" {
             return try await next.respond(to: request)
         }
         

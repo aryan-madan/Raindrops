@@ -1,102 +1,127 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Raindrops Access</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Raindrops</title>
     <style>
         :root {
-            --bg: #050505;
-            --input-bg: #111;
-            --border: #222;
-            --accent: #00cbff;
-            --text: #fff;
-            --text-sec: #666;
+            --bg: #F4F4F5;
+            --card: #FFFFFF;
+            --text: #18181B;
+            --muted: #A1A1AA;
+            --border: #E4E4E7;
+            --accent: #18181B;
+            --focus: #00cbff;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #000000;
+                --card: #18181B;
+                --text: #FAFAFA;
+                --muted: #52525B;
+                --border: #27272A;
+                --accent: #FFFFFF;
+            }
+        }
+        
         body {
-            margin: 0;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            margin: 0; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font);
             background: var(--bg);
             color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            letter-spacing: -0.01em;
         }
+
         .container {
-            width: 100%;
-            max-width: 320px;
+            width: 100%; max-width: 320px;
             padding: 20px;
             text-align: center;
+            animation: fade 0.4s ease-out;
         }
-        .logo {
-            width: 48px;
-            height: 48px;
-            margin-bottom: 32px;
+
+        .logo { width: 48px; height: 48px; margin-bottom: 24px; }
+
+        h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px 0; }
+        p { font-size: 15px; color: var(--muted); margin: 0 0 32px 0; }
+
+        .pin-wrap {
+            position: relative;
+            display: flex; gap: 12px; justify-content: center;
         }
-        h1 {
-            font-size: 20px;
-            font-weight: 600;
-            margin: 0 0 8px 0;
-        }
-        p {
-            font-size: 14px;
-            color: var(--text-sec);
-            margin: 0 0 32px 0;
-        }
-        form {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        input {
-            background: var(--input-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 16px;
-            color: var(--text);
-            text-align: center;
-            outline: none;
-            transition: all 0.2s;
-            font-family: inherit;
-        }
-        input:focus {
-            border-color: var(--accent);
-            background: #151515;
-        }
-        button {
-            background: var(--text);
-            color: var(--bg);
-            border: none;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
+
+        .real-input {
+            position: absolute; inset: 0; opacity: 0;
+            font-size: 24px; letter-spacing: 1em; height: 100%;
             cursor: pointer;
-            transition: opacity 0.2s;
         }
-        button:hover {
-            opacity: 0.9;
+
+        .box {
+            width: 48px; height: 56px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; font-weight: 500;
+            transition: 0.2s;
         }
+
+        .real-input:focus ~ .box.active {
+            border-color: var(--focus);
+            box-shadow: 0 0 0 3px rgba(0, 203, 255, 0.2);
+        }
+
         .error {
-            color: #ff453a;
-            font-size: 13px;
-            height: 20px;
-            margin-top: -8px;
+            color: #EF4444; font-size: 13px; margin-top: 24px; min-height: 20px; font-weight: 500;
         }
+
+        @keyframes fade { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
 <body>
     <div class="container">
-        <img src="/logo" class="logo" alt="Raindrops">
-        <h1>Private Session</h1>
-        <p>Enter the 4-digit PIN to connect</p>
-        <form method="POST" action="/login">
-            <input type="text" name="pin" placeholder="PIN" maxlength="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autofocus required>
+        <img src="/logo" class="logo" alt="R">
+        <h1>Welcome</h1>
+        <p>Enter the 4-digit PIN to continue.</p>
+        
+        <form method="POST" action="/login" id="form">
+            <div class="pin-wrap">
+                <input type="tel" name="pin" class="real-input" id="input" maxlength="4" autocomplete="off" autofocus>
+                <div class="box" id="b1"></div>
+                <div class="box" id="b2"></div>
+                <div class="box" id="b3"></div>
+                <div class="box" id="b4"></div>
+            </div>
             <div class="error">{{ERROR}}</div>
-            <button type="submit">Access Files</button>
         </form>
     </div>
+
+    <script>
+        const input = document.getElementById('input');
+        const boxes = [
+            document.getElementById('b1'),
+            document.getElementById('b2'),
+            document.getElementById('b3'),
+            document.getElementById('b4')
+        ];
+
+        function update() {
+            const val = input.value;
+            boxes.forEach((b, i) => {
+                b.innerText = val[i] || '';
+                if (i === val.length) b.classList.add('active');
+                else b.classList.remove('active');
+            });
+            if (val.length === 4) document.getElementById('form').submit();
+        }
+
+        input.addEventListener('input', update);
+        update();
+        
+        document.querySelector('.pin-wrap').addEventListener('click', () => input.focus());
+    </script>
 </body>
 </html>
