@@ -37,7 +37,6 @@ const features = [
     {
         icon: <SpeakerHigh size={48} weight="fill" />,
         title: "Blazing fast\nnative app",
-        highlight: true
     }
 ]
 
@@ -72,6 +71,7 @@ export default function Features() {
                         </div>
                         <h3 className="text-xl font-bold text-primary leading-tight whitespace-pre-line relative z-10">
                             {f.title}
+                            {/* @ts-ignore */}
                             {f.highlight && (
                                 <div className="absolute bottom-[-0.1em] left-[-0.2em] right-[-0.2em] h-[0.4em] bg-accent/40 rounded-sm -z-10 rotate-1"></div>
                             )}

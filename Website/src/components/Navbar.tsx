@@ -22,7 +22,7 @@ export default function Navbar() {
               />
           </div>
           <span className="font-bold text-xl tracking-tight text-primary transition-colors">Raindrops</span>
-          <span className="bg-surface border border-primary/10 text-secondary text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-colors">v1.7</span>
+          <span className="bg-surface border border-primary/10 text-secondary text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-colors">v1.3.2</span>
         </div>
 
         <div className="pointer-events-auto flex items-center gap-6">

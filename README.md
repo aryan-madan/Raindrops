@@ -1,4 +1,4 @@
-<img src="./Sources/Resources/Logo.svg" alt="Raindrops Logo" width="120" />
+<img src="./Website/public/og.png" alt="Raindrops Banner" />
 
 # raindrops
 (yes the name is inspired by airdrop)
