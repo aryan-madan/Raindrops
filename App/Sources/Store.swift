@@ -1,4 +1,5 @@
 
+
 import SwiftUI
 import CoreImage.CIFilterBuiltins
 import Foundation
@@ -108,6 +109,38 @@ class Store: ObservableObject {
     func open(_ name: String) {
         let url = Storage.location.appendingPathComponent(name)
         NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: "")
+    }
+    
+    func delete(_ name: String) {
+        let url = Storage.location.appendingPathComponent(name)
+        do {
+            try FileManager.default.removeItem(at: url)
+            playSound("Tink")
+            refresh()
+        } catch {
+            print("Failed to delete \(name): \(error)")
+        }
+    }
+    
+    func importFiles(_ urls: [URL]) async {
+        let targetFolder = Storage.location
+        var added = false
+        for src in urls {
+            let dst = targetFolder.appendingPathComponent(src.lastPathComponent)
+            do {
+                if FileManager.default.fileExists(atPath: dst.path) {
+                    try FileManager.default.removeItem(at: dst)
+                }
+                try FileManager.default.copyItem(at: src, to: dst)
+                added = true
+            } catch {
+                print("Failed to copy \(src.lastPathComponent): \(error)")
+            }
+        }
+        if added {
+            refresh()
+            playSound("Pop")
+        }
     }
     
     func clear() {

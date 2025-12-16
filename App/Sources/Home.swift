@@ -1,9 +1,12 @@
+
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct Home: View {
     @EnvironmentObject var store: Store
     @State private var showCopied: Bool = false
+    @State private var isDropTarget: Bool = false
 
     let brandColor = Color(red: 0, green: 203 / 255, blue: 1)
 
@@ -100,7 +103,15 @@ struct Home: View {
                 GeometryReader { geometry in
                     ZStack {
                         Color.white.opacity(0.04)
-                            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                            .clipShape(
+                                UnevenRoundedRectangle(
+                                    topLeadingRadius: 28,
+                                    bottomLeadingRadius: 0,
+                                    bottomTrailingRadius: 0,
+                                    topTrailingRadius: 28,
+                                    style: .continuous
+                                )
+                            )
                             .ignoresSafeArea(edges: .bottom)
 
                         ScrollView {
@@ -159,14 +170,21 @@ struct Home: View {
                             }
                         }) {
                             HStack(spacing: 8) {
-                                Circle()
-                                    .fill(store.isTunneling ? brandColor : Color.green)
-                                    .frame(width: 8, height: 8)
-                                    .shadow(
-                                        color: (store.isTunneling ? brandColor : Color.green)
-                                            .opacity(0.6), radius: 4)
+                                if isDropTarget {
+                                    Image(systemName: "arrow.down.circle.fill")
+                                        .font(.system(size: 16))
+                                        .foregroundStyle(brandColor)
+                                        .symbolEffect(.bounce, value: isDropTarget)
+                                } else {
+                                    Circle()
+                                        .fill(store.isTunneling ? brandColor : Color.green)
+                                        .frame(width: 8, height: 8)
+                                        .shadow(
+                                            color: (store.isTunneling ? brandColor : Color.green)
+                                                .opacity(0.6), radius: 4)
+                                }
 
-                                Text(showCopied ? "Copied Link!" : store.host)
+                                Text(isDropTarget ? "Drop to Add" : (showCopied ? "Copied Link!" : store.host))
                                     .font(.system(size: 14, weight: .medium, design: .monospaced))
                                     .foregroundStyle(.white.opacity(0.9))
                                     .clipShape(Rectangle())
@@ -178,6 +196,9 @@ struct Home: View {
                         .buttonStyle(.plain)
                         .glassEffect(.regular, in: .capsule)
                         .clipShape(Capsule())
+                        .scaleEffect(isDropTarget ? 1.05 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isDropTarget)
+                        
                         Spacer()
                     }
 
@@ -214,6 +235,24 @@ struct Home: View {
             }
         }
         .frame(minWidth: 800, minHeight: 600)
+        .onDrop(of: [.fileURL], isTargeted: $isDropTarget) { providers in
+             Task {
+                var urls: [URL] = []
+                for provider in providers {
+                    if let item = try? await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier),
+                       let data = item as? Data,
+                       let url = URL(dataRepresentation: data, relativeTo: nil) {
+                        urls.append(url)
+                    } else if let url = try? await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier) as? URL {
+                        urls.append(url)
+                    }
+                }
+                if !urls.isEmpty {
+                    await store.importFiles(urls)
+                }
+            }
+            return true
+        }
     }
 }
 
@@ -310,6 +349,23 @@ struct FileCard: View {
         .contentShape(Rectangle())
         .onTapGesture {
             store.open(name)
+        }
+        .contextMenu {
+            Button {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            } label: {
+                Label("Show in Finder", systemImage: "folder")
+            }
+            
+            Divider()
+            
+            Button(role: .destructive) {
+                withAnimation {
+                    store.delete(name)
+                }
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
         }
     }
 
@@ -477,7 +533,7 @@ struct MenuBarItem: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 11)
                     .fill(isHovering ? Color.accentColor : Color.clear)
             )
             .foregroundStyle(isHovering ? .white : .primary)
