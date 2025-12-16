@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#FFFFFF">
+    <meta name="theme-color" content="#ffffff">
     <title>Raindrops</title>
     <link rel="icon" type="image/svg+xml" href="/logo">
     <link rel="stylesheet" href="/style.css">
@@ -51,6 +51,7 @@
 
         <div class="scroll-wrapper">
             <div class="scroll-area">
+                <div id="breadcrumbs" class="breadcrumbs"></div>
                 <div id="container" class="grid"></div>
             </div>
         </div>
@@ -69,8 +70,8 @@
 
     <div class="drag-shade" id="drag-shade">
         <div class="drag-content">
-            <i class="ph-duotone ph-cloud-arrow-up" style="font-size: 64px;"></i>
-            <span>Drop to Upload</span>
+            <i class="ph-duotone ph-cloud-arrow-up" style="font-size: 64px; color: var(--accent);"></i>
+            <span style="font-weight: 600; color: var(--fg-primary);">Drop to Upload</span>
         </div>
     </div>
 
@@ -96,6 +97,7 @@
             </div>
             <div class="mp-controls">
                 <button class="mp-btn" onclick="togglePlay()"><i class="ph-fill ph-play" id="mp-play-icon"></i></button>
+                <button class="mp-btn action" onclick="downloadAudio()"><i class="ph-bold ph-download-simple"></i></button>
                 <button class="mp-btn close" onclick="closeAudio()"><i class="ph-bold ph-x"></i></button>
             </div>
         </div>

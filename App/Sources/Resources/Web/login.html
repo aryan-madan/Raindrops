@@ -3,41 +3,39 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Raindrops</title>
     <style>
         :root {
-            --bg: #F4F4F5;
+            --bg: #F2F2F7;
             --card: #FFFFFF;
-            --text: #18181B;
-            --muted: #A1A1AA;
-            --border: #E4E4E7;
-            --accent: #18181B;
-            --focus: #00cbff;
+            --text: #000000;
+            --muted: #8E8E93;
+            --border: #C6C6C8;
+            --focus: #007AFF;
             --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg: #000000;
-                --card: #18181B;
-                --text: #FAFAFA;
-                --muted: #52525B;
-                --border: #27272A;
-                --accent: #FFFFFF;
+                --card: #1C1C1E;
+                --text: #FFFFFF;
+                --muted: #8E8E93;
+                --border: #38383A;
             }
         }
 
         body {
             margin: 0;
-            height: 100vh;
+            min-height: 100dvh;
             display: flex;
             align-items: center;
             justify-content: center;
             font-family: var(--font);
             background: var(--bg);
             color: var(--text);
-            letter-spacing: -0.01em;
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
@@ -45,7 +43,6 @@
             max-width: 320px;
             padding: 20px;
             text-align: center;
-            animation: fade 0.4s ease-out;
         }
 
         .logo {
@@ -55,7 +52,7 @@
         }
 
         h1 {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 600;
             margin: 0 0 8px 0;
         }
@@ -64,6 +61,7 @@
             font-size: 15px;
             color: var(--muted);
             margin: 0 0 32px 0;
+            line-height: 1.4;
         }
 
         .pin-wrap {
@@ -99,27 +97,15 @@
 
         .real-input:focus~.box.active {
             border-color: var(--focus);
-            box-shadow: 0 0 0 3px rgba(0, 203, 255, 0.2);
+            box-shadow: 0 0 0 1px var(--focus);
         }
 
         .error {
-            color: #EF4444;
+            color: #FF3B30;
             font-size: 13px;
             margin-top: 24px;
             min-height: 20px;
             font-weight: 500;
-        }
-
-        @keyframes fade {
-            from {
-                opacity: 0;
-                transform: scale(0.98);
-            }
-
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
         }
     </style>
 </head>

@@ -1,6 +1,13 @@
 
+
 import Vapor
 import Foundation
+
+struct FileItem: Content {
+    let name: String
+    let type: String
+    let size: String
+}
 
 actor FileEvents {
     private var streams: [UUID: AsyncStream<Void>.Continuation] = [:]
@@ -197,15 +204,94 @@ final class Host: @unchecked Sendable {
             let path = req.parameters.getCatchall().joined(separator: "/")
             if path.contains("..") { throw Abort(.forbidden) }
             let url = Storage.location.appendingPathComponent(path)
+            
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+                process.arguments = ["-r", "-", url.lastPathComponent]
+                process.currentDirectoryURL = url.deletingLastPathComponent()
+                process.environment = ["PATH": "/usr/bin:/bin"]
+                
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                
+                let nullPipe = Pipe()
+                process.standardError = nullPipe
+                
+                do {
+                    try process.run()
+                } catch {
+                    throw Abort(.internalServerError, reason: "Failed to create zip archive")
+                }
+                
+                let response = Response(status: .ok, headers: [
+                    "Content-Type": "application/zip",
+                    "Content-Disposition": "attachment; filename=\"\(url.lastPathComponent).zip\""
+                ])
+                
+                response.body = .init(stream: { writer in
+                    let handle = pipe.fileHandleForReading
+                    handle.readabilityHandler = { h in
+                        let data = h.availableData
+                        if data.isEmpty {
+                            h.readabilityHandler = nil
+                        } else {
+                            _ = writer.write(.buffer(ByteBuffer(data: data)))
+                        }
+                    }
+                    
+                    process.terminationHandler = { _ in
+                        handle.readabilityHandler = nil
+                        _ = writer.write(.end)
+                    }
+                })
+                return response
+            }
+            
             return try await req.fileio.asyncStreamFile(at: url.path)
         }
         
-        app.get("list") { req -> [String] in
-            let url = Storage.location
-            guard let urls = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil) else {
+        app.get("list") { req -> [FileItem] in
+            let path = req.query[String.self, at: "path"] ?? ""
+            if path.contains("..") { throw Abort(.forbidden) }
+            
+            let root = Storage.location
+            let url = path.isEmpty ? root : root.appendingPathComponent(path)
+            
+            if !url.path.hasPrefix(root.path) {
+                throw Abort(.forbidden)
+            }
+            
+            guard let urls = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey]) else {
                 return []
             }
-            return urls.map { $0.lastPathComponent }.filter { !$0.hasPrefix(".") }.sorted()
+            
+            return urls.compactMap { url -> FileItem? in
+                let name = url.lastPathComponent
+                if name.hasPrefix(".") { return nil }
+                
+                var isDir: ObjCBool = false
+                FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+                let type = isDir.boolValue ? "folder" : "file"
+                
+                var size: Int64 = 0
+                if !isDir.boolValue {
+                    let attr = try? FileManager.default.attributesOfItem(atPath: url.path)
+                    size = (attr?[.size] as? Int64) ?? 0
+                }
+                
+                return FileItem(
+                    name: name,
+                    type: type,
+                    size: isDir.boolValue ? "--" : ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
+                )
+            }.sorted { 
+                if $0.type == $1.type {
+                     return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+                }
+                return $0.type == "folder"
+            }
         }
     }
     

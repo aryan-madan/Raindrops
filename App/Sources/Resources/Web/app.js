@@ -1,8 +1,10 @@
-let allFiles = [];
+
+let currentFiles = [];
 let viewMode = localStorage.getItem('viewMode') || 'grid';
 let uploadQueue = [];
 let isUploading = false;
 let isDraggingSeek = false;
+let currentPath = "";
 
 document.addEventListener('DOMContentLoaded', () => {
     setView(viewMode);
@@ -29,15 +31,45 @@ function setView(mode) {
     const btnList = document.getElementById('btn-list');
     if(btnGrid) btnGrid.className = `view-btn ${mode === 'grid' ? 'active' : ''}`;
     if(btnList) btnList.className = `view-btn ${mode === 'list' ? 'active' : ''}`;
-    render(allFiles);
+    render(currentFiles);
 }
 
 async function load() {
     try {
-        const res = await fetch('/list');
-        allFiles = await res.json();
-        render(allFiles);
+        const res = await fetch(`/list?path=${encodeURIComponent(currentPath)}`);
+        currentFiles = await res.json();
+        render(currentFiles);
+        updateBreadcrumbs();
     } catch (e) {}
+}
+
+function updateBreadcrumbs() {
+    const el = document.getElementById('breadcrumbs');
+    if (!el) return;
+
+    let html = `<span onclick="navigateTo('')" class="${currentPath === '' ? 'active' : ''}">Home</span>`;
+    
+    if (currentPath) {
+        const parts = currentPath.split('/');
+        let buildPath = '';
+        parts.forEach((p, i) => {
+            buildPath += (buildPath ? '/' : '') + p;
+            html += `<i class="ph-bold ph-caret-right separator"></i>`;
+            const isActive = i === parts.length - 1;
+            const safePath = buildPath.replace(/'/g, "\\'");
+            html += `<span onclick="navigateTo('${safePath}')" class="${isActive ? 'active' : ''}">${p}</span>`;
+        });
+        
+        const dlUrl = `/files/${encodeURIComponent(currentPath)}`;
+        html += `<a href="${dlUrl}" class="btn-dl-folder" download><i class="ph-bold ph-download-simple"></i> Download Folder</a>`;
+    }
+    
+    el.innerHTML = html;
+}
+
+function navigateTo(path) {
+    currentPath = path;
+    load();
 }
 
 function render(files) {
@@ -49,56 +81,88 @@ function render(files) {
             <div class="empty" style="grid-column:1/-1;">
                 <div class="empty-icon"><i class="ph-fill ph-upload-simple"></i></div>
                 <h3>No Files</h3>
-                <p>Drop files here or click upload to start sharing.</p>
+                <p>Drop files here or use the upload button.</p>
             </div>`;
         return;
     }
 
-    el.innerHTML = files.map(name => {
+    el.innerHTML = files.map(item => {
+        const name = item.name;
+        const type = item.type; 
+        const size = item.size;
+        
         const ext = name.split('.').pop().toLowerCase();
         const safe = name.replace(/'/g, "\\'");
-        const url = `/files/${encodeURIComponent(name)}`;
-        const isImg = ['jpg','jpeg','png','gif','webp','svg'].includes(ext);
+    
+        const fullRelPath = currentPath ? `${currentPath}/${name}` : name;
+        const url = `/files/${encodeURIComponent(fullRelPath)}`;
+        
+        const isImg = type === 'file' && ['jpg','jpeg','png','gif','webp','svg'].includes(ext);
         
         let icon = 'ph-file';
-        if(['pdf'].includes(ext)) icon = 'ph-file-pdf';
-        if(['mp4','mov','webm'].includes(ext)) icon = 'ph-film-strip';
-        if(['zip','rar'].includes(ext)) icon = 'ph-archive';
-        if(['mp3','wav','ogg','m4a','flac','aac'].includes(ext)) icon = 'ph-music-note';
-        if(['txt','md','json'].includes(ext)) icon = 'ph-file-text';
-        if(['html','css','js','py','swift'].includes(ext)) icon = 'ph-code';
+        if (type === 'folder') icon = 'ph-folder';
+        else {
+            if(['pdf'].includes(ext)) icon = 'ph-file-pdf';
+            if(['mp4','mov','webm'].includes(ext)) icon = 'ph-film-strip';
+            if(['zip','rar'].includes(ext)) icon = 'ph-archive';
+            if(['mp3','wav','ogg','m4a','flac','aac'].includes(ext)) icon = 'ph-music-note';
+            if(['txt','md','json'].includes(ext)) icon = 'ph-file-text';
+            if(['html','css','js','py','swift'].includes(ext)) icon = 'ph-code';
+            if(['xls','xlsx','csv'].includes(ext)) icon = 'ph-file-xls';
+            if(['doc','docx'].includes(ext)) icon = 'ph-file-doc';
+        }
+
+        const clickAction = type === 'folder' 
+            ? `onclick="openFolder('${safe}')"` 
+            : `onclick="openFile('${safe}')"`;
 
         if (viewMode === 'grid') {
-            const preview = isImg 
-                ? `<img src="${url}" loading="lazy">` 
-                : `<i class="ph-duotone ${icon}"></i>`;
+            let preview;
+            if (isImg) {
+                preview = `<img src="${url}" loading="lazy" alt="${name}">`;
+            } else {
+                let iconClass = icon;
+                if(type === 'folder') iconClass = 'ph-folder-simple-fill';
+                preview = `<i class="ph-duotone ${iconClass}" style="${type === 'folder' ? 'color:#00cbff;' : ''}"></i>`;
+            }
             
             return `
-            <div class="card" onclick="openFile('${safe}')">
-                <div class="card-content">${preview}</div>
+            <div class="card" ${clickAction} title="${name}">
+                <div class="card-preview">${preview}</div>
                 <div class="card-info">
                     <div class="name">${name}</div>
-                    <div class="ext">${ext.toUpperCase()}</div>
+                    <div class="ext">${type === 'folder' ? 'FOLDER' : ext.toUpperCase()}</div>
                 </div>
             </div>`;
         } else {
-            const preview = isImg 
-                ? `<img src="${url}" loading="lazy">` 
-                : `<i class="ph ${icon}"></i>`;
+            let preview;
+            if (isImg) {
+                preview = `<img src="${url}" loading="lazy" alt="icon">`;
+            } else {
+                let iconClass = icon;
+                if(type === 'folder') iconClass = 'ph-folder-simple-fill';
+                preview = `<i class="ph ${iconClass}" style="${type === 'folder' ? 'color:#00cbff;' : ''}"></i>`;
+            }
 
             return `
-            <div class="row" onclick="openFile('${safe}')">
+            <div class="row" ${clickAction}>
                 <div class="row-icon">${preview}</div>
                 <div class="row-name">${name}</div>
-                <div class="row-size">${ext}</div>
+                <div class="row-size">${size}</div>
             </div>`;
         }
     }).join('');
 }
 
+function openFolder(name) {
+    currentPath = currentPath ? `${currentPath}/${name}` : name;
+    load();
+}
+
 function openFile(name) {
     const ext = name.split('.').pop().toLowerCase();
-    const url = `/files/${encodeURIComponent(name)}`;
+    const fullRelPath = currentPath ? `${currentPath}/${name}` : name;
+    const url = `/files/${encodeURIComponent(fullRelPath)}`;
     
     const isImg = ['jpg','jpeg','png','gif','webp','svg'].includes(ext);
     const isVid = ['mp4','mov','webm'].includes(ext);
@@ -112,7 +176,9 @@ function openFile(name) {
         const a = document.createElement('a');
         a.href = url;
         a.download = name;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
     }
 }
 
@@ -121,12 +187,31 @@ function openAudio(name, url) {
     const audio = document.getElementById('audio-el');
     
     document.getElementById('mp-title').innerText = name;
+    
+    audio.dataset.downloadUrl = url;
+    audio.dataset.downloadName = name;
+    
     audio.src = url;
     audio.play();
     
     player.classList.add('active');
     updatePlayIcon(true);
     updateSeekFill();
+}
+
+function downloadAudio() {
+    const audio = document.getElementById('audio-el');
+    const url = audio.dataset.downloadUrl || audio.src;
+    const name = audio.dataset.downloadName || 'audio.mp3';
+    
+    if (url) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
 }
 
 function togglePlay() {
@@ -180,7 +265,10 @@ function updateSeekFill() {
     const val = seek.value || 0;
     const percent = (val / max) * 100;
     
-    const bg = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${percent}%, var(--bg-surface) ${percent}%, var(--bg-surface) 100%)`;
+    const fill = getComputedStyle(document.documentElement).getPropertyValue('--fg-primary').trim();
+    const empty = getComputedStyle(document.documentElement).getPropertyValue('--bg-active').trim();
+    
+    const bg = `linear-gradient(to right, ${fill} 0%, ${fill} ${percent}%, ${empty} ${percent}%, ${empty} 100%)`;
     seek.style.background = bg;
 }
 
@@ -211,7 +299,7 @@ function openPreview(name, url, type) {
     dl.download = name;
 
     if (type === 'img') {
-        content.innerHTML = `<img src="${url}" class="preview-media">`;
+        content.innerHTML = `<img src="${url}" class="preview-media" alt="${name}">`;
     } else {
         content.innerHTML = `<video src="${url}" class="preview-media" controls autoplay playsinline></video>`;
     }
@@ -259,7 +347,10 @@ function triggerFolder() {
 
 function handleFiles(files) {
     Array.from(files).forEach(f => {
-        const relPath = f.webkitRelativePath || f.name;
+        let relPath = f.webkitRelativePath || f.name;
+        if (currentPath) {
+            relPath = currentPath + '/' + relPath;
+        }
         uploadQueue.push({ file: f, path: relPath });
     });
     processNext();
@@ -309,5 +400,5 @@ function setupDrag() {
 
 function filter() {
     const term = document.getElementById('search').value.toLowerCase();
-    render(allFiles.filter(name => name.toLowerCase().includes(term)));
+    render(currentFiles.filter(item => item.name.toLowerCase().includes(term)));
 }
