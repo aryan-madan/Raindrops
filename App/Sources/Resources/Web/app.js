@@ -1,16 +1,19 @@
 
+
 let currentFiles = [];
 let viewMode = localStorage.getItem('viewMode') || 'grid';
 let uploadQueue = [];
 let isUploading = false;
 let isDraggingSeek = false;
 let currentPath = "";
+let permissions = { read: true, write: true };
 
 document.addEventListener('DOMContentLoaded', () => {
-    setView(viewMode);
-    load();
-    setupDrag();
-    new EventSource("/events").onmessage = () => load();
+    checkPermissions();
+    
+    new EventSource("/events").onmessage = () => {
+        checkPermissions();
+    };
     
     const seek = document.getElementById('mp-seek');
     if (seek) {
@@ -22,7 +25,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+async function checkPermissions() {
+    try {
+        const res = await fetch('/permissions');
+        if (res.ok) {
+            permissions = await res.json();
+        }
+    } catch(e) {
+        console.error("Failed to fetch permissions", e);
+    }
+    updateInterface();
+}
+
+function updateInterface() {
+    // Write Permissions
+    const uploadSection = document.getElementById('upload-section');
+    const fabBtn = document.getElementById('fab-btn');
+    const dragShade = document.getElementById('drag-shade');
+    
+    if (permissions.write) {
+        if(uploadSection) uploadSection.style.display = '';
+        if(fabBtn) fabBtn.style.display = '';
+        setupDrag();
+    } else {
+        if(uploadSection) uploadSection.style.display = 'none';
+        if(fabBtn) fabBtn.style.display = 'none';
+        window.ondragover = null;
+        window.ondrop = null;
+    }
+
+    // Read Permissions
+    const searchWrap = document.querySelector('.search-wrap');
+    const viewOpts = document.querySelector('.view-opts');
+    const container = document.getElementById('container');
+    const breadcrumbs = document.getElementById('breadcrumbs');
+
+    if (permissions.read) {
+        if(searchWrap) searchWrap.style.display = '';
+        if(viewOpts) viewOpts.style.display = '';
+        if(breadcrumbs) breadcrumbs.style.display = '';
+        setView(viewMode);
+        load();
+    } else {
+        if(searchWrap) searchWrap.style.display = 'none';
+        if(viewOpts) viewOpts.style.display = 'none';
+        if(breadcrumbs) breadcrumbs.style.display = 'none';
+        
+        if (container) {
+            let msg = '';
+            if (permissions.write) {
+                msg = `
+                <div class="empty" style="grid-column:1/-1;">
+                    <div class="empty-icon"><i class="ph-duotone ph-cloud-arrow-up"></i></div>
+                    <h3>Drop Box Mode</h3>
+                    <p>You can upload files, but existing files are hidden.</p>
+                </div>`;
+            } else {
+                msg = `
+                <div class="empty" style="grid-column:1/-1;">
+                    <div class="empty-icon"><i class="ph-duotone ph-lock-key"></i></div>
+                    <h3>Clipboard Only</h3>
+                    <p>File transfer is currently disabled by the host.</p>
+                </div>`;
+            }
+            container.innerHTML = msg;
+        }
+    }
+}
+
 function setView(mode) {
+    if(!permissions.read) return;
     viewMode = mode;
     localStorage.setItem('viewMode', mode);
     const el = document.getElementById('container');
@@ -35,8 +107,15 @@ function setView(mode) {
 }
 
 async function load() {
+    if(!permissions.read) return;
     try {
         const res = await fetch(`/list?path=${encodeURIComponent(currentPath)}`);
+        if (res.status === 403) {
+            // Permissions might have changed mid-session
+            permissions.read = false;
+            updateInterface();
+            return;
+        }
         currentFiles = await res.json();
         render(currentFiles);
         updateBreadcrumbs();
@@ -44,6 +123,7 @@ async function load() {
 }
 
 function updateBreadcrumbs() {
+    if(!permissions.read) return;
     const el = document.getElementById('breadcrumbs');
     if (!el) return;
 
@@ -68,11 +148,13 @@ function updateBreadcrumbs() {
 }
 
 function navigateTo(path) {
+    if(!permissions.read) return;
     currentPath = path;
     load();
 }
 
 function render(files) {
+    if(!permissions.read) return;
     const el = document.getElementById('container');
     if(!el) return;
     
@@ -122,8 +204,8 @@ function render(files) {
                 preview = `<img src="${url}" loading="lazy" alt="${name}">`;
             } else {
                 let iconClass = icon;
-                if(type === 'folder') iconClass = 'ph-folder-simple-fill';
-                preview = `<i class="ph-duotone ${iconClass}" style="${type === 'folder' ? 'color:#00cbff;' : ''}"></i>`;
+                if(type === 'folder') iconClass = 'ph-folder'; // Use generic folder class
+                preview = `<i class="ph-duotone ${iconClass}"></i>`;
             }
             
             return `
@@ -140,8 +222,8 @@ function render(files) {
                 preview = `<img src="${url}" loading="lazy" alt="icon">`;
             } else {
                 let iconClass = icon;
-                if(type === 'folder') iconClass = 'ph-folder-simple-fill';
-                preview = `<i class="ph ${iconClass}" style="${type === 'folder' ? 'color:#00cbff;' : ''}"></i>`;
+                if(type === 'folder') iconClass = 'ph-folder';
+                preview = `<i class="ph ${iconClass}"></i>`;
             }
 
             return `
@@ -155,11 +237,13 @@ function render(files) {
 }
 
 function openFolder(name) {
+    if(!permissions.read) return;
     currentPath = currentPath ? `${currentPath}/${name}` : name;
     load();
 }
 
 function openFile(name) {
+    if(!permissions.read) return;
     const ext = name.split('.').pop().toLowerCase();
     const fullRelPath = currentPath ? `${currentPath}/${name}` : name;
     const url = `/files/${encodeURIComponent(fullRelPath)}`;
@@ -346,6 +430,10 @@ function triggerFolder() {
 }
 
 function handleFiles(files) {
+    if (!permissions.write) {
+        showToast("Uploads disabled");
+        return;
+    }
     Array.from(files).forEach(f => {
         let relPath = f.webkitRelativePath || f.name;
         if (currentPath) {
@@ -363,8 +451,14 @@ async function processNext() {
     
     showToast(`Uploading ${item.path}...`);
     try {
-        await fetch('/upload?name=' + encodeURIComponent(item.path), { method: 'POST', body: item.file });
-        showToast('Uploaded');
+        const res = await fetch('/upload?name=' + encodeURIComponent(item.path), { method: 'POST', body: item.file });
+        if (res.status === 403) {
+            showToast('Upload forbidden');
+        } else if (res.ok) {
+            showToast('Uploaded');
+        } else {
+            showToast('Error uploading');
+        }
     } catch(e) {
         showToast('Error uploading');
     }
@@ -372,7 +466,7 @@ async function processNext() {
     isUploading = false;
     if(uploadQueue.length) processNext();
     else {
-        load();
+        if(permissions.read) load();
         setTimeout(() => {
             const t = document.getElementById('toast');
             if(t) t.classList.remove('show');
@@ -390,10 +484,20 @@ function showToast(msg) {
 
 function setupDrag() {
     const shade = document.getElementById('drag-shade');
-    window.ondragover = e => { e.preventDefault(); shade.classList.add('active'); };
-    window.ondragleave = e => { if(!e.relatedTarget) shade.classList.remove('active'); };
+    if(!shade) return;
+    
+    window.ondragover = e => { 
+        if(!permissions.write) return;
+        e.preventDefault(); 
+        shade.classList.add('active'); 
+    };
+    window.ondragleave = e => { 
+        if(!e.relatedTarget) shade.classList.remove('active'); 
+    };
     window.ondrop = e => { 
-        e.preventDefault(); shade.classList.remove('active');
+        if(!permissions.write) return;
+        e.preventDefault(); 
+        shade.classList.remove('active');
         handleFiles(e.dataTransfer.files);
     };
 }

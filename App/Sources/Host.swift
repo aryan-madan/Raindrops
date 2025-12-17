@@ -9,6 +9,11 @@ struct FileItem: Content {
     let size: String
 }
 
+struct PermissionsResponse: Content {
+    let read: Bool
+    let write: Bool
+}
+
 actor FileEvents {
     private var streams: [UUID: AsyncStream<Void>.Continuation] = [:]
     
@@ -39,17 +44,23 @@ final class Host: @unchecked Sendable {
     let onStatus: @Sendable (Bool) -> Void
     let onRefresh: @Sendable () -> Void
     let pinProvider: @Sendable () async -> String
+    let readProvider: @Sendable () async -> Bool
+    let writeProvider: @Sendable () async -> Bool
     let events: FileEvents
     
     init(port: Int, 
          onStatus: @escaping @Sendable (Bool) -> Void, 
          onRefresh: @escaping @Sendable () -> Void,
          pinProvider: @escaping @Sendable () async -> String,
+         readProvider: @escaping @Sendable () async -> Bool,
+         writeProvider: @escaping @Sendable () async -> Bool,
          events: FileEvents) {
         self.port = port
         self.onStatus = onStatus
         self.onRefresh = onRefresh
         self.pinProvider = pinProvider
+        self.readProvider = readProvider
+        self.writeProvider = writeProvider
         self.events = events
     }
     
@@ -101,6 +112,13 @@ final class Host: @unchecked Sendable {
                 throw Abort(.notFound)
             }
             return Response(status: .ok, headers: ["Content-Type": "application/javascript"], body: .init(string: js))
+        }
+        
+        app.get("permissions") { req async -> PermissionsResponse in
+            return PermissionsResponse(
+                read: await self.readProvider(),
+                write: await self.writeProvider()
+            )
         }
 
         app.get("events") { req -> Response in
@@ -169,6 +187,8 @@ final class Host: @unchecked Sendable {
         }
         
         app.on(.POST, "upload", body: .stream) { req async throws -> String in
+            if await !self.writeProvider() { throw Abort(.forbidden) }
+            
             self.onStatus(true)
             let name = req.query[String.self, at: "name"] ?? "unknown_file"
             
@@ -201,6 +221,8 @@ final class Host: @unchecked Sendable {
         }
         
         app.get("files", "**") { req async throws -> Response in
+            if await !self.readProvider() { throw Abort(.forbidden) }
+            
             let path = req.parameters.getCatchall().joined(separator: "/")
             if path.contains("..") { throw Abort(.forbidden) }
             let url = Storage.location.appendingPathComponent(path)
@@ -253,6 +275,8 @@ final class Host: @unchecked Sendable {
         }
         
         app.get("list") { req -> [FileItem] in
+            if await !self.readProvider() { throw Abort(.forbidden) }
+            
             let path = req.query[String.self, at: "path"] ?? ""
             if path.contains("..") { throw Abort(.forbidden) }
             

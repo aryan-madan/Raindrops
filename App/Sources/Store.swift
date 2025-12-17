@@ -13,6 +13,18 @@ class Store: ObservableObject {
     @Published var busy: Bool = false
     @Published var pin: String = ""
     
+    // Permissions
+    @Published var allowRead: Bool = true {
+        didSet {
+            Task { await events.signal() }
+        }
+    }
+    @Published var allowWrite: Bool = true {
+        didSet {
+            Task { await events.signal() }
+        }
+    }
+    
     @Published var isTunneling: Bool = false
     @Published var findingTunnel: Bool = false
     private var tunnelProcess: Process?
@@ -54,12 +66,26 @@ class Store: ObservableObject {
             }
         }
         
+        let readProvider: @Sendable () async -> Bool = { [weak self] in
+            await MainActor.run {
+                self?.allowRead ?? true
+            }
+        }
+        
+        let writeProvider: @Sendable () async -> Bool = { [weak self] in
+            await MainActor.run {
+                self?.allowWrite ?? true
+            }
+        }
+        
         serverTask = Task.detached {
             let server = Host(
                 port: port,
                 onStatus: onStatus,
                 onRefresh: onRefresh,
                 pinProvider: pinProvider,
+                readProvider: readProvider,
+                writeProvider: writeProvider,
                 events: self.events
             )
             do {

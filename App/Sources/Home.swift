@@ -1,4 +1,5 @@
 
+
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
@@ -7,6 +8,7 @@ struct Home: View {
     @EnvironmentObject var store: Store
     @State private var showCopied: Bool = false
     @State private var isDropTarget: Bool = false
+    @State private var showPermissions: Bool = false
 
     let brandColor = Color(red: 0, green: 203 / 255, blue: 1)
 
@@ -95,6 +97,44 @@ struct Home: View {
                         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
                     }
                     .buttonStyle(.plain)
+                    
+                    Button(action: { showPermissions.toggle() }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(10)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(Circle())
+                            .glassEffect(.regular, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showPermissions, arrowEdge: .bottom) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Guest Permissions")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            
+                            HStack {
+                                Label("Allow Viewing", systemImage: "eye")
+                                    .font(.system(size: 13))
+                                Spacer()
+                                Toggle("", isOn: $store.allowRead)
+                                    .labelsHidden()
+                                    .toggleStyle(.switch)
+                            }
+                            
+                            HStack {
+                                Label("Allow Uploading", systemImage: "arrow.up.doc")
+                                    .font(.system(size: 13))
+                                Spacer()
+                                Toggle("", isOn: $store.allowWrite)
+                                    .labelsHidden()
+                                    .toggleStyle(.switch)
+                            }
+                        }
+                        .padding(16)
+                        .frame(width: 240)
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
@@ -206,8 +246,8 @@ struct Home: View {
                         Spacer()
                         HStack(spacing: 8) {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
 
                             Text(store.pin)
                                 .font(.system(size: 13, weight: .medium, design: .monospaced))
@@ -281,6 +321,19 @@ struct FileCard: View {
                                     .scaleEffect(0.6)
                             }
                             .frame(width: geo.size.width, height: 180)
+                        }
+                    }
+                    .frame(height: 180)
+                } else if isFolder {
+                    ZStack {
+                        Color.white.opacity(0.05)
+                        VStack(spacing: 8) {
+                            Image(systemName: "folder.fill")
+                                .font(.system(size: 42))
+                                .foregroundStyle(.secondary.opacity(0.25))
+                            Text("FOLDER")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.secondary.opacity(0.4))
                         }
                     }
                     .frame(height: 180)
@@ -369,6 +422,14 @@ struct FileCard: View {
         }
     }
 
+    var isFolder: Bool {
+        var isDir: ObjCBool = false
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) {
+            return isDir.boolValue
+        }
+        return false
+    }
+
     var isImage: Bool {
         ["jpg", "jpeg", "png", "gif", "heic", "webp"].contains(url.pathExtension.lowercased())
     }
@@ -389,7 +450,7 @@ struct FileCard: View {
 struct MenuBarView: View {
     @EnvironmentObject var store: Store
     @Environment(\.openWindow) var openWindow
-    @State private var isHoveringCopy = false
+    @State private var showPermissions = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -430,7 +491,7 @@ struct MenuBarView: View {
                             .aspectRatio(contentMode: .fit)
                             .padding(8)
                     }
-                    .frame(width: 150, height: 150)
+                    .frame(width: 200, height: 200)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .shadow(color: .black.opacity(0.12), radius: 5, x: 0, y: 2)
                     .overlay(
@@ -439,58 +500,87 @@ struct MenuBarView: View {
                     )
                 }
 
-                Button(action: {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(store.host, forType: .string)
-                    store.playSound("Pop")
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "link")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                VStack(spacing: 12) {
+                    Button(action: {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(store.host, forType: .string)
+                        store.playSound("Pop")
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "link")
+                                .font(.system(size: 12))
+                            Text(store.host)
+                                .font(.system(size: 11, design: .monospaced))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(Color.primary.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
 
-                        Text(store.host)
-                            .font(.system(size: 11, design: .monospaced))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .foregroundStyle(.primary.opacity(0.8))
+                    HStack {
+                         HStack(spacing: 4) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                            Text(store.pin)
+                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.primary.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
 
                         Spacer()
 
-                        Image(systemName: "doc.on.doc")
-                            .font(.system(size: 10))
+                        Button(action: { withAnimation { showPermissions.toggle() } }) {
+                            HStack(spacing: 4) {
+                                Text("Permissions")
+                                    .font(.system(size: 11))
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 10))
+                                    .rotationEffect(.degrees(showPermissions ? 90 : 0))
+                            }
                             .foregroundStyle(.secondary)
-                            .opacity(isHoveringCopy ? 1 : 0)
-                            .transition(.opacity)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        isHoveringCopy ? Color.primary.opacity(0.06) : Color.primary.opacity(0.03)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-                    )
+                    
+                    if showPermissions {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("Allow Viewing")
+                                    .font(.system(size: 11))
+                                Spacer()
+                                Toggle("", isOn: $store.allowRead)
+                                    .toggleStyle(.switch)
+                                    .labelsHidden()
+                                    .controlSize(.mini)
+                            }
+                            
+                            HStack {
+                                Text("Allow Uploading")
+                                    .font(.system(size: 11))
+                                Spacer()
+                                Toggle("", isOn: $store.allowWrite)
+                                    .toggleStyle(.switch)
+                                    .labelsHidden()
+                                    .controlSize(.mini)
+                            }
+                        }
+                        .padding(10)
+                        .background(Color.primary.opacity(0.03))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
                 }
-                .buttonStyle(.plain)
-                .onHover { isHoveringCopy = $0 }
-                .padding(.horizontal, 12)
-
-                HStack(spacing: 6) {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-
-                    Text("PIN:")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-
-                    Text(store.pin)
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.primary)
-                }
+                .padding(.horizontal, 16)
             }
             .padding(.vertical, 16)
 
